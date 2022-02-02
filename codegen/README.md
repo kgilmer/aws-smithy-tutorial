@@ -1,0 +1,1 @@
+This Gradle module represents the codegen plugin for Smithy.  It integrates with Smithy to generate code.
