@@ -1,4 +1,4 @@
 
-rootProject.name = "t1"
+rootProject.name = "example-codegen"
 
-include("codegen", "generator")
+include("codegen", "codegen-test")

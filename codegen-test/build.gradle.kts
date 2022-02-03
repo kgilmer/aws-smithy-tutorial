@@ -10,7 +10,7 @@ buildscript {
     }
 }
 
-group = "me.kggilmer"
+group = "example"
 version = "1.0-SNAPSHOT"
 
 tasks["jar"].enabled = false

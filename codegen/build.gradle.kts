@@ -4,7 +4,7 @@ plugins {
     kotlin("jvm") version "1.6.10"
 }
 
-group = "me.kggilmer"
+group = "example"
 version = "1.0-SNAPSHOT"
 
 repositories {
