@@ -1,0 +1,33 @@
+digraph D {
+    subgraph cluster_service {
+        label = "Weather";
+
+        subgraph cluster_operations {
+            label = "Operations";
+
+            subgraph cluster_GetCurrentTempOperation {
+                label = "GetCurrentTemp";
+
+                subgraph cluster_o1 {
+                    label = "Inputs";
+
+                    subgraph cluster_GetCurrentTempInput {
+                        label = "GetCurrentTempInput";
+
+                        format;
+                    }
+                }
+
+                subgraph cluster_o2 {
+                    label = "Outputs";
+
+                    subgraph cluster_GetCurrentTempOutput {
+                        label = "GetCurrentTempOutput";
+
+                        temp;
+                    }
+                }
+            }
+        }
+    }
+}
