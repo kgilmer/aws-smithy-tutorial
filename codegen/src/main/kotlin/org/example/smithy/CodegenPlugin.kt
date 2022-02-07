@@ -3,7 +3,6 @@ package org.example.smithy
 import software.amazon.smithy.build.PluginContext
 import software.amazon.smithy.build.SmithyBuildPlugin
 import software.amazon.smithy.model.Model
-import software.amazon.smithy.model.shapes.MemberShape
 import software.amazon.smithy.model.shapes.OperationShape
 import software.amazon.smithy.model.shapes.ServiceShape
 import software.amazon.smithy.model.shapes.ShapeId
