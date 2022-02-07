@@ -7,6 +7,6 @@ class CodegenPlugin : SmithyBuildPlugin {
     override fun getName(): String = "example-codegen"
 
     override fun execute(context: PluginContext?) {
-        // shake your money maker
+        println("I see ${context?.model?.serviceShapes?.joinToString()}")
     }
 }
