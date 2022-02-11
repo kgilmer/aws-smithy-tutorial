@@ -2,13 +2,33 @@ package org.example.smithy
 
 import software.amazon.smithy.build.PluginContext
 import software.amazon.smithy.build.SmithyBuildPlugin
-import software.amazon.smithy.model.Model
+import software.amazon.smithy.model.neighbor.Walker
+import software.amazon.smithy.model.shapes.BigDecimalShape
+import software.amazon.smithy.model.shapes.BigIntegerShape
+import software.amazon.smithy.model.shapes.BlobShape
+import software.amazon.smithy.model.shapes.BooleanShape
+import software.amazon.smithy.model.shapes.ByteShape
+import software.amazon.smithy.model.shapes.DocumentShape
+import software.amazon.smithy.model.shapes.DoubleShape
+import software.amazon.smithy.model.shapes.FloatShape
+import software.amazon.smithy.model.shapes.IntegerShape
+import software.amazon.smithy.model.shapes.ListShape
+import software.amazon.smithy.model.shapes.LongShape
+import software.amazon.smithy.model.shapes.MapShape
+import software.amazon.smithy.model.shapes.MemberShape
 import software.amazon.smithy.model.shapes.OperationShape
+import software.amazon.smithy.model.shapes.ResourceShape
 import software.amazon.smithy.model.shapes.ServiceShape
-import software.amazon.smithy.model.shapes.ShapeId
+import software.amazon.smithy.model.shapes.SetShape
+import software.amazon.smithy.model.shapes.ShapeVisitor
+import software.amazon.smithy.model.shapes.ShortShape
+import software.amazon.smithy.model.shapes.StringShape
 import software.amazon.smithy.model.shapes.StructureShape
+import software.amazon.smithy.model.shapes.TimestampShape
+import software.amazon.smithy.model.shapes.UnionShape
+import software.amazon.smithy.model.transform.ModelTransformer
 
-class CodegenPlugin : SmithyBuildPlugin {
+class CodegenPlugin : SmithyBuildPlugin, ShapeVisitor<Unit> {
     override fun getName(): String = "example-codegen"
 
     override fun execute(context: PluginContext?) {
@@ -17,70 +37,104 @@ class CodegenPlugin : SmithyBuildPlugin {
             "Can only generate a graph for a single service, but model contains ${context.model.serviceShapes.size} services."
         }
 
-        generateDotDiagramForService(context.model)
+        val modelWithoutTraits = ModelTransformer.create().getModelWithoutTraitShapes(context.model)
+        val shapesInService = Walker(modelWithoutTraits).walkShapes(context.model.serviceShapes.first())
+        shapesInService.forEach { it.accept(this) } // cause [ShapeVisitor] functions to be called
+
+        CppWriter.flushAll(context.fileManifest) // cause writer contents to be written to disk
     }
 
-    private fun generateDotDiagramForService(model: Model) {
-        val service = model.serviceShapes.first()
-
-        println("""
-            digraph D {
-                subgraph cluster_service {
-                    label = "${service.id.name}";
-
-                    ${generateOperationContainer(model, service)}
-                }
-            }
-        """.trimIndent())
+    override fun blobShape(p0: BlobShape?) {
+        println("I see $p0")
     }
 
-    private fun generateOperationContainer(model: Model, service: ServiceShape): String {
-        return """
-            subgraph cluster_operations {
-            label = "Operations";
-
-            ${service
-                .allOperations
-                .map {  generateOperation(model, it) }.joinToString("\n") { it }
-            }
-            }
-        """.trimIndent()
+    override fun booleanShape(p0: BooleanShape?) {
+        println("I see $p0")
     }
 
-    private fun generateOperation(model: Model, operationShapeId: ShapeId): String {
-        val operationShape = model.expectShape(operationShapeId, OperationShape::class.java)
-        val inputShape = operationShape.input.orElseGet { null } ?: error("Expected input shape")
-        val outputShape = operationShape.output.orElseGet { null } ?: error("Expected output shape")
-        return """
-            subgraph cluster_${operationShapeId.name}Operation {
-                label = "${operationShapeId.name}";
-
-                subgraph cluster_o1 {
-                    label = "Inputs";
-
-                    subgraph cluster_${inputShape.name} {
-                        label = "${inputShape.name}";
-
-                        ${generateMembers(model, inputShape)}
-                    }
-                }
-
-                subgraph cluster_o2 {
-                    label = "Outputs";
-
-                    subgraph cluster_${outputShape.name} {
-                        label = "${outputShape.name}";
-
-                        ${generateMembers(model, inputShape)}
-                    }
-                }
-            }
-        """.trimIndent()
+    override fun listShape(p0: ListShape?) {
+        println("I see $p0")
     }
 
-    private fun generateMembers(model: Model, shapeId: ShapeId): String {
-        val shape = model.expectShape(shapeId, StructureShape::class.java)
+    override fun setShape(p0: SetShape?) {
+        println("I see $p0")
+    }
 
-        return shape.members().joinToString(";\n") { it.id.name }
+    override fun mapShape(p0: MapShape?) {
+        println("I see $p0")
+    }
+
+    override fun byteShape(p0: ByteShape?) {
+        println("I see $p0")
+    }
+
+    override fun shortShape(p0: ShortShape?) {
+        println("I see $p0")
+    }
+
+    override fun integerShape(p0: IntegerShape?) {
+        println("I see $p0")
+    }
+
+    override fun longShape(p0: LongShape?) {
+        println("I see $p0")
+    }
+
+    override fun floatShape(p0: FloatShape?) {
+        println("I see $p0")
+    }
+
+    override fun documentShape(p0: DocumentShape?) {
+        println("I see $p0")
+    }
+
+    override fun doubleShape(p0: DoubleShape?) {
+        println("I see $p0")
+    }
+
+    override fun bigIntegerShape(p0: BigIntegerShape?) {
+        println("I see $p0")
+    }
+
+    override fun bigDecimalShape(p0: BigDecimalShape?) {
+        println("I see $p0")
+    }
+
+    override fun operationShape(p0: OperationShape?) {
+        println("I see $p0")
+    }
+
+    override fun resourceShape(p0: ResourceShape?) {
+        println("I see $p0")
+    }
+
+    override fun serviceShape(p0: ServiceShape?) {
+        println("I see $p0")
+    }
+
+    override fun stringShape(p0: StringShape?) {
+        println("I see $p0")
+    }
+
+    override fun structureShape(struct: StructureShape?) {
+        val structName = struct?.id?.name ?: error("Unexpected null shape")
+
+        val headerFile = "$structName.h"
+        generateEntityHeader(struct, CppWriter.forFile(headerFile))
+
+        val cppFile = "$structName.cpp"
+        generateEntityCpp(struct, CppWriter.forFile(cppFile))
+    }
+
+    override fun unionShape(p0: UnionShape?) {
+        println("I see $p0")
+    }
+
+    override fun memberShape(p0: MemberShape?) {
+        println("I see $p0")
+    }
+
+    override fun timestampShape(p0: TimestampShape?) {
+        println("I see $p0")
     }
 }
