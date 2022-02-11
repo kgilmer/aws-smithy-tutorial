@@ -5,14 +5,14 @@ import software.amazon.smithy.model.shapes.StructureShape
 
 // Generate an entity type header
 fun generateEntityHeader(struct: StructureShape, writer: CppWriter) {
-    val className = struct.id.name
+    val classSymbol = CodegenPlugin.toSymbol(struct)
 
     writer.write("#include <iostream>")
     writer.write("")
-    writer.write("class $className {")
+    writer.write("class $classSymbol {")
     writer.write("public:")
     writer.indent()
-    writer.write("$className(${generateMembersAsParams(struct)});")
+    writer.write("$classSymbol(${generateMembersAsParams(struct)});")
     writer.write("")
     generateFieldAccessors(struct, writer)
     writer.dedent()
@@ -54,7 +54,4 @@ private fun generateMemberDeclarations(struct: StructureShape, writer: CppWriter
 
 // Return the CPP type of given shape
 fun cppTypeForShape(shapeId: ShapeId): String =
-    when (shapeId.name) {
-        "String" -> "std::string"
-        else -> error("Unhandled $shapeId")
-    }
+    CodegenPlugin.toSymbol(shapeId).name

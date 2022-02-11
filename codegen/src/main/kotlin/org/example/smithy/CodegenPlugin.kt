@@ -2,6 +2,8 @@ package org.example.smithy
 
 import software.amazon.smithy.build.PluginContext
 import software.amazon.smithy.build.SmithyBuildPlugin
+import software.amazon.smithy.codegen.core.Symbol
+import software.amazon.smithy.codegen.core.SymbolProvider
 import software.amazon.smithy.model.neighbor.Walker
 import software.amazon.smithy.model.shapes.BigDecimalShape
 import software.amazon.smithy.model.shapes.BigIntegerShape
@@ -20,6 +22,9 @@ import software.amazon.smithy.model.shapes.OperationShape
 import software.amazon.smithy.model.shapes.ResourceShape
 import software.amazon.smithy.model.shapes.ServiceShape
 import software.amazon.smithy.model.shapes.SetShape
+import software.amazon.smithy.model.shapes.Shape
+import software.amazon.smithy.model.shapes.ShapeId
+import software.amazon.smithy.model.shapes.ShapeType
 import software.amazon.smithy.model.shapes.ShapeVisitor
 import software.amazon.smithy.model.shapes.ShortShape
 import software.amazon.smithy.model.shapes.StringShape
@@ -29,6 +34,33 @@ import software.amazon.smithy.model.shapes.UnionShape
 import software.amazon.smithy.model.transform.ModelTransformer
 
 class CodegenPlugin : SmithyBuildPlugin, ShapeVisitor<Unit> {
+
+    companion object SymbolProvider : software.amazon.smithy.codegen.core.SymbolProvider {
+        private var pluginContext: PluginContext? = null;
+
+        override fun toSymbol(shape: Shape): Symbol =
+            when (shape.type) {
+                ShapeType.STRUCTURE -> {
+                    Symbol.builder()
+                        .name(shape.id.name)
+                        .declarationFile("${shape.id.name}.h")
+                        .definitionFile("${shape.id.name}.cpp")
+                        .build()
+                }
+                ShapeType.STRING -> {
+                    Symbol.builder()
+                        .name("std::string")
+                        .build()
+                }
+                else -> error("Unhandled shape $shape")
+            }
+
+        fun toSymbol(shapeId: ShapeId): Symbol {
+            val model = pluginContext!!.model
+            return toSymbol(model.getShape(shapeId).orElseThrow())
+        }
+    }
+
     override fun getName(): String = "example-codegen"
 
     override fun execute(context: PluginContext?) {
@@ -37,6 +69,7 @@ class CodegenPlugin : SmithyBuildPlugin, ShapeVisitor<Unit> {
             "Can only generate a graph for a single service, but model contains ${context.model.serviceShapes.size} services."
         }
 
+        pluginContext = context
         val modelWithoutTraits = ModelTransformer.create().getModelWithoutTraitShapes(context.model)
         val shapesInService = Walker(modelWithoutTraits).walkShapes(context.model.serviceShapes.first())
         shapesInService.forEach { it.accept(this) } // cause [ShapeVisitor] functions to be called
@@ -117,13 +150,10 @@ class CodegenPlugin : SmithyBuildPlugin, ShapeVisitor<Unit> {
     }
 
     override fun structureShape(struct: StructureShape?) {
-        val structName = struct?.id?.name ?: error("Unexpected null shape")
-
-        val headerFile = "$structName.h"
-        generateEntityHeader(struct, CppWriter.forFile(headerFile))
-
-        val cppFile = "$structName.cpp"
-        generateEntityCpp(struct, CppWriter.forFile(cppFile))
+        requireNotNull(struct)
+        val symbol = toSymbol(struct)
+        generateEntityHeader(struct, CppWriter.forFile(symbol.declarationFile))
+        generateEntityCpp(struct, CppWriter.forFile(symbol.definitionFile))
     }
 
     override fun unionShape(p0: UnionShape?) {
