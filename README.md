@@ -105,4 +105,4 @@ Summary
 
 In this first part introduction to Smithy, we’ve built a simple codegen plugin in Kotlin that integrates with the Smithy gradle plugin. This plugin is then called by Smithy to generate code from the model and setting inputs. I hope you enjoyed this quick introduction to service codegen with Smithy. This is just the tip of the iceberg and is simply the first step! As mentioned above, all this work is available in GitHub here: [https://github.com/kgilmer/aws-smithy-tutorial](https://github.com/kgilmer/aws-smithy-tutorial)
 
-Next up: [Part II — GraphViz]()
+Next up: [Part II — GraphViz](https://github.com/kgilmer/aws-smithy-tutorial/blob/part-2/README.md)
