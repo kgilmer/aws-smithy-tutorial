@@ -11,15 +11,71 @@ _NOTE: This series is intended as an introduction to code generation with Smithy
 
 Smithy is available as a set of [Java libraries](https://mvnrepository.com/artifact/software.amazon.smithy) for parsing models, validating them, and of course generating code with them (codegen). We’ll setup an empty Kotlin project in IntelliJ with the dependencies needed. A Smithy-based codegen is typically composed of at least two modules: the codegen implementation itself, and a dependent module that provides [API model](https://awslabs.github.io/smithy/1.0/spec/core/model.html)s and settings to produce codegen output. As such, we will build a project with two modules. The root `settings.gradle.kts` :
 
-<script src="https://gist.github.com/kgilmer/2a5afa02022ccf41c7e58248213aba2f.js"></script>
+```kotlin
+rootProject.name = "example-codegen"
+
+include("codegen", "codegen-test")
+```
 
 Then we’ll create two directories from the root for each module: `codegen`, and `codegen-test` . Here are the `build.gradle.kts` files for the `codegen` module. Notice we depend on the artifact `smithy-codegen-core` which provides the Smithy code needed for a codegen project:
 
-<script src="https://gist.github.com/kgilmer/a627c903313b68424aeabaf9b84d3710.js"></script>
+```kotlin
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
+plugins {
+    kotlin("jvm") version "1.6.10"
+}
+
+group = "example"
+version = "1.0-SNAPSHOT"
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    val smithyVersion = "1.16.3"
+    api("software.amazon.smithy:smithy-codegen-core:$smithyVersion")
+    testImplementation(kotlin("test"))
+}
+
+tasks.test {
+    useJUnitPlatform()
+}
+
+tasks.withType<KotlinCompile>() {
+    kotlinOptions.jvmTarget = "1.8"
+}
+```
 
 For the `codegen-test` module we depend on the `codegen` module and use Smithy’s Gradle plugin to bootstrap our code generator into the Gradle build lifecycle:
 
-<script src="https://gist.github.com/kgilmer/88c939f03652e5d31fd8232a202e1874.js"></script>
+```kotlin
+plugins {
+    id("software.amazon.smithy") version "0.5.3"
+}
+
+buildscript {
+    val smithyVersion = "1.16.3"
+    dependencies {
+        classpath("software.amazon.smithy:smithy-model:$smithyVersion")
+        classpath("software.amazon.smithy:smithy-aws-traits:$smithyVersion")
+    }
+}
+
+group = "example"
+version = "1.0-SNAPSHOT"
+
+tasks["jar"].enabled = false
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation(project(":codegen"))
+}
+```
 
 Our project structure should look something like this now:
 
@@ -39,7 +95,15 @@ Our project structure should look something like this now:
 
 Let’s dive into codegen now. In the `codegen` module we’ll add a class that implements `SmithyBuildPlugin` :
 
-<script src="https://gist.github.com/kgilmer/7519c6b4dd43912e48097dac1df45a62.js"></script>
+```kotlin
+class CodegenPlugin : SmithyBuildPlugin {
+    override fun getName(): String = "example-codegen"
+
+    override fun execute(context: PluginContext?) {
+        // this is where the magic happens
+    }
+}
+```
 
 This is our entry point into a codegen session, as controlled by the Smithy Gradle plugin. The `PluginContext` in `execute()` will provide the API model and other types that are used in codegen. We need to declare our plugin in a file called software.amazon.smithy.build.SmithyBuildPlugin in the META-INF resource directory so that Smithy will load it at runtime:
 
@@ -53,13 +117,46 @@ Notice that the package and class name of our plugin must match what we declare 
 
 In order to know if our plugin is working, let’s print all of the discovered services that Smithy finds at runtime when our codegen plugin is applied to a service model:
 
-<script src="https://gist.github.com/kgilmer/f303b7c4a128fae7ac9842110eed75ee.js"></script>
+```kotlin
+class CodegenPlugin : SmithyBuildPlugin {
+    ...
+
+    override fun execute(context: PluginContext?) {
+        println("Hello  ${context?.model?.serviceShapes?.joinToString()}")
+    }
+}
+```
 
 That should be all that’s needed for our `codegen` plugin. Let’s setup our other module with a sample model to see our plugin run. We’ll use the [example Smithy model](https://awslabs.github.io/smithy/quickstart.html#weather-service) `weather.smithy` . By convention Smithy will automatically discover models in the `/models` directory of a module.
 
 `/models/weather.smithy` :
 
-<script src="https://gist.github.com/kgilmer/2dfd35d07b0d3ac4fcd0294530f11213.js"></script>
+```kotlin
+namespace example.weather.simple
+
+service Weather {
+    version: "2006-03-01",
+    operations: [GetCurrentTemp]
+}
+
+@readonly
+@http(method: "GET", uri: "/?format", code: 200)
+operation GetCurrentTemp {
+    input: GetCurrentTempInput,
+    output: GetCurrentTempOutput
+}
+
+structure GetCurrentTempInput {
+    @httpQuery("format")
+    @required
+    format: String
+}
+
+structure GetCurrentTempOutput {
+    @required
+    temp: String
+}
+```
 
 This is the Smithy model language IDL. You can learn more about it at the [Smithy website](https://awslabs.github.io/smithy/).
 
@@ -67,7 +164,19 @@ The last thing we need is a `smithy-build.json` file, which represents configura
 
 `smithy-build.json` :
 
-<script src="https://gist.github.com/kgilmer/f265dbb23b8f3bc83bc9460aedc912d7.js"></script>
+```json
+
+{
+  "version": "1.0",
+  "plugins": {
+    "example-codegen": {
+      "service": "org.example.weather.simple#Weather",
+      "module": "weather",
+      "moduleVersion": "0.0.1"
+    }
+  }
+}
+```
 
 Notice that the object under `plugins` must match the name our plugin returns in the `getName()` function.
 
